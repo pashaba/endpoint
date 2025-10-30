@@ -3,14 +3,18 @@
   "name": "pvb-mirror-api",
   "builds": [
     {
+      "src": "*.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "api/**/*.js",
       "use": "@vercel/node"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/api/$1"
+      "source": "/",
+      "destination": "/api/mirror"
     }
   ],
   "headers": [
@@ -24,14 +28,6 @@
         {
           "key": "Access-Control-Allow-Methods",
           "value": "GET, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "s-maxage=300, stale-while-revalidate"
         }
       ]
     }
