@@ -1,94 +1,81 @@
 const axios = require('axios');
 
-// Cache in memory
 let cache = {
   data: null,
   timestamp: null
 };
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
 module.exports = async (req, res) => {
-  // Set CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', true);
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
 
-  // Handle OPTIONS request for CORS
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
-  // Only allow GET requests
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
+    // Check cache
     const now = Date.now();
-    
-    // Check cache first
     if (cache.data && cache.timestamp && (now - cache.timestamp) < CACHE_DURATION) {
-      console.log('Serving from cache');
       return res.json({
         success: true,
         source: 'cache',
-        cached: true,
-        timestamp: new Date().toISOString(),
         data: cache.data
       });
     }
 
-    console.log('Fetching fresh data from source');
-    
-    // Fetch from source
+    // User-Agent yang realistic
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+    ];
+
     const response = await axios.get('https://pvb-bot.page.gd/pvb_api_config.php?db_id=3', {
-      timeout: 10000,
+      timeout: 15000,
       headers: {
-        'User-Agent': 'PVB-Mirror-API/1.0'
-      }
+        'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)],
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Referer': 'https://pvb-bot.page.gd/',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin'
+      },
+      // Tambahkan delay random
+      delay: Math.floor(Math.random() * 1000) + 500
     });
 
-    // Update cache
     cache.data = response.data;
     cache.timestamp = now;
 
-    // Return response
     res.json({
       success: true,
       source: 'fresh',
-      cached: false,
-      timestamp: new Date().toISOString(),
       data: response.data
     });
 
   } catch (error) {
-    console.error('Error fetching data:', error.message);
-
-    // Fallback to cache if available
+    console.error('Error:', error.message);
+    
     if (cache.data) {
-      console.log('Using cache as fallback');
       return res.json({
         success: true,
         source: 'cache_fallback',
-        cached: true,
-        timestamp: new Date().toISOString(),
-        data: cache.data,
-        warning: 'Using cached data due to fetch error'
+        data: cache.data
       });
     }
 
-    // No cache available, return error
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch data',
-      message: error.message,
-      timestamp: new Date().toISOString()
+      error: error.message,
+      response: error.response?.data
     });
   }
 };
